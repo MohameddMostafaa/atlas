@@ -7,6 +7,7 @@ from src.schemas.service import ServiceCreate, ServiceResponse, ServiceUpdate
 
 from sqlalchemy import select
 
+from src.services.service_status import is_valid_service_status
 
 router = APIRouter(
     prefix="/services",
@@ -92,6 +93,13 @@ def update_service(
         )
 
     update_data = service_data.model_dump(exclude_unset=True)
+
+    if "status" in update_data:
+        if not is_valid_service_status(update_data["status"]):
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid service status",
+            )
 
     for field, value in update_data.items():
         setattr(service, field, value)

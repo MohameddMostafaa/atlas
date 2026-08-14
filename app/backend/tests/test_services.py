@@ -134,3 +134,27 @@ def test_create_service_invalid_input(client):
     )
 
     assert response.status_code == 422
+
+def test_update_service_invalid_status(client):
+    create_response = client.post(
+        "/services",
+        json={
+            "name": "Status Test API",
+            "description": "Testing invalid status",
+            "url": "http://status-test",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    service_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/services/{service_id}",
+        json={
+            "status": "banana",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid service status"}
