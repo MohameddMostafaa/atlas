@@ -56,3 +56,14 @@ jobs:
           DATABASE_URL: postgresql+psycopg://atlas_app:atlas_test_password@localhost:5432/atlas_test
           TEST_DATABASE_URL: postgresql+psycopg://atlas_app:atlas_test_password@localhost:5432/atlas_test
         run: pytest
+
+    docker-build:
+      name: Build Docker Image
+      runs-on: ubuntu-latest
+
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+
+        - name: Build Docker image
+        run: docker build -t atlas-api:ci .
