@@ -108,8 +108,18 @@ jobs:
       - name: Run database migrations
         run: docker compose exec -T api alembic upgrade head
 
-      - name: Check API health
-        run: curl --fail http://127.0.0.1:8000/health
+      - name: Wait for API health
+        run: |
+          for i in {1..30}; do
+            if curl --fail http://127.0.0.1:8000/health; then
+              exit 0
+            fi
+            echo "API not ready yet..."
+            sleep 2
+          done
+
+          echo "API failed to become ready"
+          exit 1
 
       - name: Check API root
         run: curl --fail http://127.0.0.1:8000/
