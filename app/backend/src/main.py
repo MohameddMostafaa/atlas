@@ -9,7 +9,7 @@ app = FastAPI()
 
 @app.get("/")
 def root():
-    return {"message": "Atlas API is running"}
+    return {"message": "Atlas API is running - deployed via CI/CD"}
 
 
 @app.get("/health")
