@@ -86,8 +86,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/atlas:latest
-            ghcr.io/${{ github.repository_owner }}/atlas:${{ github.sha }}
+            ghcr.io/mohameddmostafaa/atlas:latest
+            ghcr.io/mohameddmostafaa/atlas:${{ github.sha }}
 
 
 
