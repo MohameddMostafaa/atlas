@@ -121,3 +121,23 @@ jobs:
       - name: Stop Docker Compose
         if: always()
         run: docker compose down -v
+
+
+  deploy:
+    needs:
+      - test
+      - docker-build
+      - docker-integration
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/atlas
+            ./deploy.sh
