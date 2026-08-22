@@ -1,10 +1,11 @@
 services:
   postgres:
     image: postgres:18
+    restart: unless-stopped
     environment:
       POSTGRES_DB: atlas
       POSTGRES_USER: atlas_app
-      POSTGRES_PASSWORD: atlas_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
@@ -14,16 +15,15 @@ services:
       retries: 5
 
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      DATABASE_URL: postgresql+psycopg://atlas_app:atlas_password@postgres:5432/atlas
-    ports:
-      - "8000:8000"
+    image: ghcr.io/mohameddmostafaa/atlas:${IMAGE_TAG}
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://atlas_app:${POSTGRES_PASSWORD}@postgres:5432/atlas
+    ports:
+      - "80:8000"
 
 volumes:
   postgres_data:
