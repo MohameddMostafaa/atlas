@@ -153,7 +153,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids i-043a6f6e6e04cbab3 \
             --document-name AWS-RunShellScript \
-            --parameters 'commands=["cd ~/atlas && ./deploy.sh"]' \
+            --parameters 'commands=["cd /home/ubuntu/atlas && ./deploy.sh"]' \
             --query 'Command.CommandId' \
             --output text)
 
@@ -168,3 +168,4 @@ jobs:
             --instance-id i-043a6f6e6e04cbab3 \
             --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' \
             --output yaml
+
