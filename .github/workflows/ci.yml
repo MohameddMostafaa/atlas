@@ -160,11 +160,23 @@ jobs:
           aws-region: eu-central-1
 
       - name: Deploy to EC2
+        env:
+          IMAGE_TAG: ${{ github.sha }}
         run: |
+          COMPOSE_B64=$(base64 -w 0 docker-compose.yml)
+          DEPLOY_B64=$(base64 -w 0 deploy.sh)
+
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids i-043a6f6e6e04cbab3 \
             --document-name AWS-RunShellScript \
-            --parameters 'commands=["cd /home/ubuntu/atlas && ./deploy.sh ${{ github.sha }}"]' \
+            --parameters "commands=[
+              \"mkdir -p /home/ubuntu/atlas\",
+              \"echo '$COMPOSE_B64' | base64 -d > /home/ubuntu/atlas/docker-compose.yml\",
+              \"echo '$DEPLOY_B64' | base64 -d > /home/ubuntu/atlas/deploy.sh\",
+              \"chmod +x /home/ubuntu/atlas/deploy.sh\",
+              \"chown ubuntu:ubuntu /home/ubuntu/atlas/deploy.sh /home/ubuntu/atlas/docker-compose.yml\",
+              \"cd /home/ubuntu/atlas && ./deploy.sh $IMAGE_TAG\"
+            ]" \
             --query 'Command.CommandId' \
             --output text)
 
@@ -179,4 +191,3 @@ jobs:
             --instance-id i-043a6f6e6e04cbab3 \
             --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' \
             --output yaml
-
