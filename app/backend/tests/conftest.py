@@ -1,6 +1,6 @@
 import os
 
-os.environ.setdefault("JWT_SECRET_KEY", "test-only-secret")
+os.environ.setdefault("JWT_SECRET_KEY", "test-only-secret-that-is-at-least-32-bytes-long")
 
 import pytest
 

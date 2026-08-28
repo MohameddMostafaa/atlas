@@ -29,4 +29,4 @@ def test_invalid_login_fails(client):
 def test_unauthenticated_mutation_is_rejected(test_service):
     with TestClient(app) as anonymous_client:
         response = anonymous_client.patch(f"/services/{test_service.id}", json={"status": "degraded"})
-    assert response.status_code == 403
+    assert response.status_code == 401

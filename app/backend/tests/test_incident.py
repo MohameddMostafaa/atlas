@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from src.models.service import Service
 from src.models.user import User
 from tests.database import TestSessionLocal
+from sqlalchemy import select
 
 from src.services.incident import (
     can_transition_status,
@@ -47,7 +48,7 @@ def test_resolved_incident_cannot_transition():
         "investigating",
     ) is False
 
-def test_create_incident(client, test_service, test_user):
+def test_create_incident(client, db, test_service, test_user):
     response = client.post(
         "/incidents",
         json={
@@ -64,7 +65,11 @@ def test_create_incident(client, test_service, test_user):
     data = response.json()
 
     assert data["service_id"] == test_service.id
-    assert data["created_by"] == test_user.id
+    operator = db.execute(
+        select(User).where(User.email == "operator@example.com")
+    ).scalar_one()
+    assert data["created_by"] == operator.id
+    assert data["created_by"] != test_user.id
     assert data["title"] == "API response times are high"
     assert data["description"] == "Response times increased significantly."
     assert data["severity"] == "high"
@@ -388,7 +393,7 @@ def test_update_incident_invalid_severity(client):
     db.close()
 
 
-def test_create_incident_update(client, test_service, test_user):
+def test_create_incident_update(client, db, test_service, test_user):
     create_response = client.post(
         "/incidents",
         json={
@@ -418,7 +423,11 @@ def test_create_incident_update(client, test_service, test_user):
     data = response.json()
 
     assert data["incident_id"] == incident_id
-    assert data["author_id"] == test_user.id
+    operator = db.execute(
+        select(User).where(User.email == "operator@example.com")
+    ).scalar_one()
+    assert data["author_id"] == operator.id
+    assert data["author_id"] != test_user.id
     assert data["message"] == (
         "We identified the database connection pool as the cause."
     )
