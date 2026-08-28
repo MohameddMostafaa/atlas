@@ -12,6 +12,10 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
 
   if (response.status === 401) logout()
   if (!response.ok) {
+    if (path === '/auth/login' && response.status === 401) {
+      throw new Error('Invalid email or password. Please try again.')
+    }
+
     throw new Error(`Unable to load status data (HTTP ${response.status}).`)
   }
 
