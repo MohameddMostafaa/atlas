@@ -1,3 +1,7 @@
+import os
+
+os.environ.setdefault("JWT_SECRET_KEY", "test-only-secret")
+
 import pytest
 
 from datetime import datetime, timezone
@@ -13,6 +17,7 @@ from src.models.incident_update import IncidentUpdate
 from src.models.service import Service
 from src.models.user import User
 from tests.database import TestSessionLocal
+from src.security import create_access_token, hash_password
 
 
 @pytest.fixture
@@ -34,6 +39,14 @@ def client():
     db.execute(delete(User))
     db.commit()
 
+    operator = User(
+        email="operator@example.com",
+        password_hash=hash_password("operator-password"),
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(operator)
+    db.commit()
+
     def override_get_db():
         try:
             yield db
@@ -42,7 +55,7 @@ def client():
 
     app.dependency_overrides[get_db] = override_get_db
 
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"Authorization": f"Bearer {create_access_token(operator.id)}"}) as test_client:
         yield test_client
 
     db.execute(delete(IncidentUpdate))

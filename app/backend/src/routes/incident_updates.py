@@ -11,6 +11,7 @@ from src.schemas.incident_update import (
     IncidentUpdateResponse,
 )
 from src.services.incident_service import create_incident_update
+from src.security import get_current_user
 
 router = APIRouter(
     prefix="/incidents/{incident_id}/updates",
@@ -27,6 +28,7 @@ def create_update(
     incident_id: int,
     update_data: IncidentUpdateCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     incident = db.execute(
         select(Incident).where(Incident.id == incident_id)
@@ -38,20 +40,10 @@ def create_update(
             detail="Incident not found",
         )
 
-    author = db.execute(
-        select(User).where(User.id == update_data.author_id)
-    ).scalar_one_or_none()
-
-    if author is None:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found",
-        )
-
     incident_update = create_incident_update(
         db=db,
         incident=incident,
-        author_id=update_data.author_id,
+        author_id=current_user.id,
         message=update_data.message,
         status=update_data.status,
     )

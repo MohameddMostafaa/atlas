@@ -34,3 +34,11 @@ export type IncidentUpdate = {
   status: IncidentStatus
   created_at: string
 }
+
+export type AuthUser = { id: number; email: string }
+export type LoginResponse = { access_token: string; token_type: 'bearer' }
+export type LoginRequest = { email: string; password: string }
+export type CreateIncidentRequest = { service_id: number; title: string; description?: string; severity: IncidentSeverity }
+export type UpdateIncidentRequest = { status?: IncidentStatus }
+export type CreateIncidentUpdateRequest = { message: string; status: IncidentStatus }
+export type UpdateServiceRequest = { status: ServiceStatus }

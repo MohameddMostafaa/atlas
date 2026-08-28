@@ -7,6 +7,7 @@ from src.database import get_db
 from src.models.incident import Incident
 from src.models.service import Service
 from src.models.user import User
+from src.security import get_current_user
 from src.schemas.incident import IncidentCreate, IncidentResponse, IncidentUpdate
 from src.services.incident import (
     can_transition_status,
@@ -30,6 +31,7 @@ router = APIRouter(
 def create_incident(
     incident_data: IncidentCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = db.execute(
         select(Service).where(Service.id == incident_data.service_id)
@@ -41,16 +43,6 @@ def create_incident(
             detail="Service not found",
         )
 
-    user = db.execute(
-        select(User).where(User.id == incident_data.created_by)
-    ).scalar_one_or_none()
-
-    if user is None:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found",
-        )
-
     if not is_valid_incident_severity(incident_data.severity):
         raise HTTPException(
             status_code=422,
@@ -59,7 +51,7 @@ def create_incident(
 
     incident = Incident(
         service_id=incident_data.service_id,
-        created_by=incident_data.created_by,
+        created_by=current_user.id,
         title=incident_data.title,
         description=incident_data.description,
         severity=incident_data.severity,
@@ -116,6 +108,7 @@ def update_incident(
     incident_id: int,
     incident_data: IncidentUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     result = db.execute(
         select(Incident).where(Incident.id == incident_id)

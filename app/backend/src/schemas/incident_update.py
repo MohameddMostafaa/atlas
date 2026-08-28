@@ -4,7 +4,6 @@ from pydantic import BaseModel, ConfigDict
 
 
 class IncidentUpdateCreate(BaseModel):
-    author_id: int
     message: str
     status: str
 

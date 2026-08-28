@@ -5,7 +5,6 @@ from pydantic import BaseModel, ConfigDict
 
 class IncidentCreate(BaseModel):
     service_id: int
-    created_by: int
     title: str
     description: str | None = None
     severity: str = "medium"

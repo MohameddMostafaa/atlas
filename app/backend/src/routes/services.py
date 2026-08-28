@@ -8,6 +8,8 @@ from src.schemas.service import ServiceCreate, ServiceResponse, ServiceUpdate
 from sqlalchemy import select
 
 from src.services.service_status import is_valid_service_status
+from src.models.user import User
+from src.security import get_current_user
 
 router = APIRouter(
     prefix="/services",
@@ -23,6 +25,7 @@ router = APIRouter(
 def create_service(
     service_data: ServiceCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = Service(
         name=service_data.name,
@@ -79,6 +82,7 @@ def update_service(
     service_id: int,
     service_data: ServiceUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     result = db.execute(
         select(Service).where(Service.id == service_id)
@@ -116,6 +120,7 @@ def update_service(
 def delete_service(
     service_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     result = db.execute(
         select(Service).where(Service.id == service_id)

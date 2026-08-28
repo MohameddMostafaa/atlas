@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import { getIncident, getIncidentUpdates, getService } from '../api/atlas'
-import type { Incident, IncidentUpdate, Service } from '../types/api'
+import { createIncidentUpdate, getIncident, getIncidentUpdates, getService } from '../api/atlas'
+import type { Incident, IncidentStatus, IncidentUpdate, Service } from '../types/api'
 import { formatDate } from '../utils/formatDate'
 import { StatusBadge } from './StatusBadge'
 
-type IncidentDetailProps = { incidentId: number; onBack: () => void }
+type IncidentDetailProps = { incidentId: number; isOperator: boolean; onBack: () => void }
 type IncidentDetailData = { incident: Incident; service: Service; updates: IncidentUpdate[] }
 
-export function IncidentDetail({ incidentId, onBack }: IncidentDetailProps) {
+export function IncidentDetail({ incidentId, isOperator, onBack }: IncidentDetailProps) {
   const [data, setData] = useState<IncidentDetailData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -30,13 +30,16 @@ export function IncidentDetail({ incidentId, onBack }: IncidentDetailProps) {
       <button className="back-link" type="button" onClick={onBack}>← Back to dashboard</button>
       {loading && <p className="message" role="status">Loading incident…</p>}
       {error && <p className="message error" role="alert">{error}</p>}
-      {data && !loading && !error && <IncidentDetailContent data={data} />}
+      {data && !loading && !error && <IncidentDetailContent data={data} isOperator={isOperator} onChange={setData} />}
     </section>
   )
 }
 
-function IncidentDetailContent({ data }: { data: IncidentDetailData }) {
+function IncidentDetailContent({ data, isOperator, onChange }: { data: IncidentDetailData; isOperator: boolean; onChange: (data: IncidentDetailData) => void }) {
   const { incident, service, updates } = data
+  const [message, setMessage] = useState('')
+  const [nextStatus, setNextStatus] = useState<IncidentStatus>(() => ({ investigating: 'identified', identified: 'monitoring', monitoring: 'resolved', resolved: 'resolved' } as Record<IncidentStatus, IncidentStatus>)[incident.status])
+  const nextStatuses: Record<IncidentStatus, IncidentStatus[]> = { investigating: ['identified'], identified: ['monitoring'], monitoring: ['resolved'], resolved: [] }
   return (
     <>
       <article className="detail-card">
@@ -49,6 +52,7 @@ function IncidentDetailContent({ data }: { data: IncidentDetailData }) {
       <section className="panel update-panel" aria-labelledby="updates-heading">
         <div className="panel-header"><h2 id="updates-heading" className="panel-title">Update history</h2><p className="panel-description">Status changes and incident communications</p></div>
         {updates.length === 0 ? <p className="empty-state">No updates have been posted yet.</p> : updates.map((update) => <article className="update-row" key={update.id}><div className="update-heading"><StatusBadge status={update.status} label={update.status} /><time className="incident-date" dateTime={update.created_at}>{formatDate(update.created_at)}</time></div><p className="update-message">{update.message}</p></article>)}
+        {isOperator && nextStatuses[incident.status].length > 0 && <form className="operator-form update-form" onSubmit={(event) => { event.preventDefault(); void createIncidentUpdate(incident.id, { message, status: nextStatus }).then((update) => { onChange({ ...data, incident: { ...incident, status: nextStatus }, updates: [...updates, update] }); setMessage('') }) }}><h3 className="panel-title">Post update</h3><label>Status<select value={nextStatus} onChange={(event) => setNextStatus(event.target.value as IncidentStatus)}>{nextStatuses[incident.status].map((status) => <option key={status} value={status}>{status}</option>)}</select></label><label>Message<textarea value={message} onChange={(event) => setMessage(event.target.value)} required rows={3} /></label><button className="primary-button">Post update</button></form>}
       </section>
     </>
   )
