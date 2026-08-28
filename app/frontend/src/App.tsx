@@ -1,173 +1,77 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { getDashboardData } from './api/atlas'
+import { IncidentList } from './components/IncidentList'
+import { ServiceList } from './components/ServiceList'
+import { StatusBadge } from './components/StatusBadge'
+import type { Incident, Service, SystemStatus } from './types/api'
 import './App.css'
 
-type Service = {
-  id: number
-  name: string
-  description: string | null
-  url: string | null
-  status: string
-}
+type DashboardState = { incidents: Incident[]; services: Service[] }
 
-type Incident = {
-  id: number
-  service_id: number
-  created_by: number
-  title: string
-  description: string
-  severity: string
-  status: string
-  created_at: string
-  updated_at: string
+function getSystemStatus(services: Service[]): SystemStatus {
+  if (services.some((service) => service.status === 'major_outage')) return 'major_outage'
+  if (services.some((service) => service.status === 'partial_outage')) return 'partial_outage'
+  if (services.some((service) => service.status === 'degraded')) return 'degraded'
+  return 'operational'
 }
 
 function App() {
-  const [services, setServices] = useState<Service[]>([])
-  const [incidents, setIncidents] = useState<Incident[]>([])
+  const [dashboard, setDashboard] = useState<DashboardState>({ incidents: [], services: [] })
+  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+
+  async function loadDashboard() {
+    setLoading(true)
+    setError(null)
+    try {
+      setDashboard(await getDashboardData())
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Unable to load the Atlas status page.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function loadDashboard() {
-      try {
-        const [servicesResponse, incidentsResponse] = await Promise.all([
-          fetch('/api/services'),
-          fetch('/api/incidents'),
-        ])
+    let cancelled = false
 
-        if (!servicesResponse.ok || !incidentsResponse.ok) {
-          throw new Error('Failed to load dashboard data')
+    void getDashboardData()
+      .then((data) => {
+        if (!cancelled) setDashboard(data)
+      })
+      .catch((caughtError: unknown) => {
+        if (!cancelled) {
+          setError(caughtError instanceof Error ? caughtError.message : 'Unable to load the Atlas status page.')
         }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
-        const servicesData = await servicesResponse.json()
-        const incidentsData = await incidentsResponse.json()
-
-        setServices(servicesData)
-        setIncidents(incidentsData)
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Something went wrong',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadDashboard()
+    return () => { cancelled = true }
   }, [])
 
+  const activeIncidents = useMemo(
+    () => dashboard.incidents.filter((incident) => incident.status !== 'resolved'),
+    [dashboard.incidents],
+  )
+  const systemStatus = getSystemStatus(dashboard.services)
+
   return (
-    <div className="app">
+    <div className="app-shell">
       <header className="header">
-        <div>
-          <h1>Atlas</h1>
-          <p>Service status & incident management</p>
-        </div>
-
-        <div className="system-status">
-          <span className="status-dot" />
-          Operational
-        </div>
+        <div className="brand"><p className="eyebrow">Atlas</p><h1>Service status</h1><p className="subtitle">Live health and incident information</p></div>
+        <StatusBadge status={systemStatus} label={systemStatus} prominent />
       </header>
-
       <main className="dashboard">
-        <section className="overview">
-          <div className="stat-card">
-            <span className="stat-label">Services</span>
-            <strong>{services.length}</strong>
-          </div>
-
-          <div className="stat-card">
-            <span className="stat-label">Active Incidents</span>
-            <strong>
-              {incidents.filter(
-                (incident) => incident.status !== 'resolved',
-              ).length}
-            </strong>
-          </div>
-
-          <div className="stat-card">
-            <span className="stat-label">Incidents</span>
-            <strong>{incidents.length}</strong>
-          </div>
+        <section className="overview" aria-label="Status overview">
+          <article className="stat-card"><span className="stat-label">Services</span><strong>{dashboard.services.length}</strong></article>
+          <article className="stat-card"><span className="stat-label">Active incidents</span><strong>{activeIncidents.length}</strong></article>
+          <article className="stat-card"><span className="stat-label">Total incidents</span><strong>{dashboard.incidents.length}</strong></article>
         </section>
-
-        {loading && <p className="message">Loading Atlas...</p>}
-
-        {error && <p className="message error">{error}</p>}
-
-        {!loading && !error && (
-          <>
-            <section className="panel">
-              <div className="panel-header">
-                <div>
-                  <h2>Services</h2>
-                  <p>Current status of Atlas services</p>
-                </div>
-              </div>
-
-              {services.length === 0 ? (
-                <p className="empty">No services found.</p>
-              ) : (
-                <div className="service-list">
-                  {services.map((service) => (
-                    <div className="service-row" key={service.id}>
-                      <div>
-                        <h3>{service.name}</h3>
-                        {service.description && (
-                          <p>{service.description}</p>
-                        )}
-                      </div>
-
-                      <div className="service-status">
-                        <span className="status-dot" />
-                        {service.status}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="panel">
-              <div className="panel-header">
-                <div>
-                  <h2>Recent Incidents</h2>
-                  <p>Latest incidents reported across services</p>
-                </div>
-              </div>
-
-              {incidents.length === 0 ? (
-                <p className="empty">No incidents found.</p>
-              ) : (
-                <div className="incident-list">
-                  {incidents.map((incident) => (
-                    <div className="incident-row" key={incident.id}>
-                      <div className="incident-main">
-                        <h3>{incident.title}</h3>
-                        <p>{incident.description}</p>
-                      </div>
-
-                      <div className="incident-meta">
-                        <span
-                          className={`badge severity-${incident.severity}`}
-                        >
-                          {incident.severity}
-                        </span>
-
-                        <span
-                          className={`badge status-${incident.status}`}
-                        >
-                          {incident.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </>
-        )}
+        {loading && <p className="message" role="status">Loading Atlas status…</p>}
+        {error && <div className="message error" role="alert"><p>{error}</p><button type="button" onClick={() => void loadDashboard()}>Try again</button></div>}
+        {!loading && !error && <div className="content-grid"><ServiceList services={dashboard.services} /><IncidentList incidents={dashboard.incidents.slice(0, 5)} services={dashboard.services} /></div>}
       </main>
     </div>
   )
