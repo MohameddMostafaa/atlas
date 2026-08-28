@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getDashboardData } from './api/atlas'
 import { IncidentList } from './components/IncidentList'
+import { IncidentDetail } from './components/IncidentDetail'
+import { ServiceDetail } from './components/ServiceDetail'
 import { ServiceList } from './components/ServiceList'
 import { StatusBadge } from './components/StatusBadge'
 import type { Incident, Service, SystemStatus } from './types/api'
 import './App.css'
 
 type DashboardState = { incidents: Incident[]; services: Service[] }
+type View = { kind: 'dashboard' } | { id: number; kind: 'incident' } | { id: number; kind: 'service' }
 
 function getSystemStatus(services: Service[]): SystemStatus {
   if (services.some((service) => service.status === 'major_outage')) return 'major_outage'
@@ -19,6 +22,7 @@ function App() {
   const [dashboard, setDashboard] = useState<DashboardState>({ incidents: [], services: [] })
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<View>({ kind: 'dashboard' })
 
   async function loadDashboard() {
     setLoading(true)
@@ -64,6 +68,9 @@ function App() {
         <StatusBadge status={systemStatus} label={systemStatus} prominent />
       </header>
       <main className="dashboard">
+        {view.kind === 'service' && <ServiceDetail serviceId={view.id} onBack={() => setView({ kind: 'dashboard' })} />}
+        {view.kind === 'incident' && <IncidentDetail incidentId={view.id} onBack={() => setView({ kind: 'dashboard' })} />}
+        {view.kind === 'dashboard' && <>
         <section className="overview" aria-label="Status overview">
           <article className="stat-card"><span className="stat-label">Services</span><strong>{dashboard.services.length}</strong></article>
           <article className="stat-card"><span className="stat-label">Active incidents</span><strong>{activeIncidents.length}</strong></article>
@@ -71,7 +78,8 @@ function App() {
         </section>
         {loading && <p className="message" role="status">Loading Atlas status…</p>}
         {error && <div className="message error" role="alert"><p>{error}</p><button type="button" onClick={() => void loadDashboard()}>Try again</button></div>}
-        {!loading && !error && <div className="content-grid"><ServiceList services={dashboard.services} /><IncidentList incidents={dashboard.incidents.slice(0, 5)} services={dashboard.services} /></div>}
+        {!loading && !error && <div className="content-grid"><ServiceList services={dashboard.services} onSelect={(id) => setView({ id, kind: 'service' })} /><IncidentList incidents={dashboard.incidents.slice(0, 5)} services={dashboard.services} onSelect={(id) => setView({ id, kind: 'incident' })} /></div>}
+        </>}
       </main>
     </div>
   )

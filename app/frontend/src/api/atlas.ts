@@ -1,4 +1,4 @@
-import type { Incident, Service } from '../types/api'
+import type { Incident, IncidentUpdate, Service } from '../types/api'
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/$/, '')
 
@@ -19,4 +19,16 @@ export async function getDashboardData(): Promise<{ incidents: Incident[]; servi
   ])
 
   return { incidents, services }
+}
+
+export function getService(serviceId: number): Promise<Service> {
+  return getJson<Service>(`/services/${serviceId}`)
+}
+
+export function getIncident(incidentId: number): Promise<Incident> {
+  return getJson<Incident>(`/incidents/${incidentId}`)
+}
+
+export function getIncidentUpdates(incidentId: number): Promise<IncidentUpdate[]> {
+  return getJson<IncidentUpdate[]>(`/incidents/${incidentId}/updates`)
 }

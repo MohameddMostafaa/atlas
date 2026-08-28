@@ -25,3 +25,12 @@ export type Incident = {
   updated_at: string
   resolved_at: string | null
 }
+
+export type IncidentUpdate = {
+  id: number
+  incident_id: number
+  author_id: number
+  message: string
+  status: IncidentStatus
+  created_at: string
+}
