@@ -18,7 +18,21 @@ PREVIOUS_IMAGE=$(docker inspect atlas-api-1 \
 
 echo "Previous image: ${PREVIOUS_IMAGE:-none}"
 
-docker compose pull api
+echo "Checking disk usage before deployment..."
+df -h /
+
+echo "Cleaning unused Docker images before pulling..."
+docker image prune -a -f
+
+echo "Docker disk usage after cleanup:"
+docker system df
+
+echo "Pulling new API image..."
+
+# Reduce output so SSM does not have to process the entire Docker pull stream.
+docker compose pull --quiet api
+
+echo "Starting new API container..."
 docker compose up -d api
 
 CURRENT_IMAGE=$(docker inspect atlas-api-1 \
@@ -31,6 +45,13 @@ echo "Waiting for API to become healthy..."
 for i in {1..30}; do
     if curl --fail --silent http://localhost/health > /dev/null; then
         echo "API is healthy."
+
+        echo "Cleaning unused Docker images after successful deployment..."
+        docker image prune -a -f
+
+        echo "Final disk usage:"
+        df -h /
+
         exit 0
     fi
 
@@ -49,7 +70,10 @@ if [ -n "$PREVIOUS_IMAGE" ]; then
     PREVIOUS_TAG="${PREVIOUS_IMAGE##*:}"
     export IMAGE_TAG="$PREVIOUS_TAG"
 
-    docker compose pull api
+    echo "Pulling previous image for rollback..."
+    docker compose pull --quiet api
+
+    echo "Starting rollback..."
     docker compose up -d api
 
     echo "Waiting for rollback to become healthy..."
@@ -57,6 +81,9 @@ if [ -n "$PREVIOUS_IMAGE" ]; then
     for i in {1..30}; do
         if curl --fail --silent http://localhost/health > /dev/null; then
             echo "Rollback successful."
+
+            docker image prune -a -f
+
             exit 1
         fi
 
@@ -66,5 +93,10 @@ if [ -n "$PREVIOUS_IMAGE" ]; then
 
     echo "ERROR: Rollback also failed."
 fi
+
+echo "Final Docker state:"
+docker compose ps
+docker system df
+df -h /
 
 exit 1
