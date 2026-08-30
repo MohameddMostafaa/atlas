@@ -227,8 +227,8 @@ jobs:
             --parameters "commands=[
               \"cd /home/ubuntu/atlas\",
               \"rm -f /tmp/atlas-deploy.log /tmp/atlas-deploy.exit\",
-              \"nohup sh -c './deploy.sh \\\"$IMAGE_TAG\\\"; rc=\\$?; echo \\$rc > /tmp/atlas-deploy.exit; exit \\$rc' > /tmp/atlas-deploy.log 2>&1 &\",
-              \"echo Deployment started with PID \\$!\"
+              \"nohup ./deploy.sh \\\"$IMAGE_TAG\\\" > /tmp/atlas-deploy.log 2>&1 &\",
+              \"echo Deployment started\"
             ]" \
             --query 'Command.CommandId' \
             --output text)

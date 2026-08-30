@@ -3,6 +3,10 @@
 set -e
 
 IMAGE_TAG="$1"
+STATUS_FILE="/tmp/atlas-deploy.exit"
+
+# Always record the actual exit code of this script.
+trap 'echo "$?" > "$STATUS_FILE"' EXIT
 
 if [ -z "$IMAGE_TAG" ]; then
     echo "Error: image tag is required"
@@ -28,9 +32,7 @@ echo "Docker disk usage after cleanup:"
 docker system df
 
 echo "Pulling new API image..."
-
-# Reduce output so SSM does not have to process the entire Docker pull stream.
-docker compose pull --quiet api
+docker compose pull api
 
 echo "Starting new API container..."
 docker compose up -d api
@@ -70,10 +72,7 @@ if [ -n "$PREVIOUS_IMAGE" ]; then
     PREVIOUS_TAG="${PREVIOUS_IMAGE##*:}"
     export IMAGE_TAG="$PREVIOUS_TAG"
 
-    echo "Pulling previous image for rollback..."
-    docker compose pull --quiet api
-
-    echo "Starting rollback..."
+    docker compose pull api
     docker compose up -d api
 
     echo "Waiting for rollback to become healthy..."
@@ -81,9 +80,6 @@ if [ -n "$PREVIOUS_IMAGE" ]; then
     for i in {1..30}; do
         if curl --fail --silent http://localhost/health > /dev/null; then
             echo "Rollback successful."
-
-            docker image prune -a -f
-
             exit 1
         fi
 
@@ -93,10 +89,5 @@ if [ -n "$PREVIOUS_IMAGE" ]; then
 
     echo "ERROR: Rollback also failed."
 fi
-
-echo "Final Docker state:"
-docker compose ps
-docker system df
-df -h /
 
 exit 1
