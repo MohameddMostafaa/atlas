@@ -89,8 +89,6 @@ jobs:
             ghcr.io/mohameddmostafaa/atlas:latest
             ghcr.io/mohameddmostafaa/atlas:${{ github.sha }}
 
-
-
   docker-integration:
     needs: docker-build
     name: Docker Compose Integration
@@ -143,7 +141,6 @@ jobs:
         if: always()
         run: docker compose down -v
 
-
   deploy:
     needs:
       - test
@@ -165,45 +162,75 @@ jobs:
       - name: Deploy to EC2
         env:
           IMAGE_TAG: ${{ github.sha }}
+          INSTANCE_ID: i-043a6f6e6e04cbab3
         run: |
           COMPOSE_B64=$(base64 -w 0 docker-compose.yml)
           DEPLOY_B64=$(base64 -w 0 deploy.sh)
 
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids i-043a6f6e6e04cbab3 \
+          wait_and_report_ssm_command() {
+            local command_id="$1"
+            local command_name="$2"
+
+            if ! aws ssm wait command-executed \
+              --command-id "$command_id" \
+              --instance-id "$INSTANCE_ID"; then
+              echo "$command_name waiter returned a non-zero result; retrieving command diagnostics."
+            fi
+
+            aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$INSTANCE_ID" \
+              --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
+              --output yaml
+
+            local command_status
+            command_status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" \
+              --instance-id "$INSTANCE_ID" \
+              --query 'Status' \
+              --output text)
+
+            if [ "$command_status" != "Success" ]; then
+              echo "$command_name finished with status: $command_status"
+              exit 1
+            fi
+          }
+
+          echo "Syncing deployment files to EC2..."
+
+          FILE_SYNC_COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
             --document-name AWS-RunShellScript \
             --parameters "commands=[
               \"mkdir -p /home/ubuntu/atlas\",
               \"echo '$COMPOSE_B64' | base64 -d > /home/ubuntu/atlas/docker-compose.yml\",
               \"echo '$DEPLOY_B64' | base64 -d > /home/ubuntu/atlas/deploy.sh\",
               \"chmod +x /home/ubuntu/atlas/deploy.sh\",
-              \"chown ubuntu:ubuntu /home/ubuntu/atlas/deploy.sh /home/ubuntu/atlas/docker-compose.yml\",
-              \"cd /home/ubuntu/atlas && ./deploy.sh $IMAGE_TAG\"
+              \"chown ubuntu:ubuntu /home/ubuntu/atlas/deploy.sh /home/ubuntu/atlas/docker-compose.yml\"
             ]" \
             --query 'Command.CommandId' \
             --output text)
 
-          echo "SSM command: $COMMAND_ID"
+          echo "File sync SSM command: $FILE_SYNC_COMMAND_ID"
 
-          if ! aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --instance-id i-043a6f6e6e04cbab3; then
-            echo "SSM waiter returned a non-zero result; retrieving command diagnostics."
-          fi
+          wait_and_report_ssm_command \
+            "$FILE_SYNC_COMMAND_ID" \
+            "File sync SSM command"
 
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id i-043a6f6e6e04cbab3 \
-            --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
-            --output yaml
+          echo "Starting deployment of image: $IMAGE_TAG"
 
-          SSM_STATUS=$(aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id i-043a6f6e6e04cbab3 \
-            --query 'Status' \
+          DEPLOY_COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --parameters "commands=[
+              \"cd /home/ubuntu/atlas\",
+              \"./deploy.sh $IMAGE_TAG\"
+            ]" \
+            --query 'Command.CommandId' \
             --output text)
 
-          if [ "$SSM_STATUS" != "Success" ]; then
-            echo "SSM command finished with status: $SSM_STATUS"
-            exit 1
-          fi
+          echo "Deploy SSM command: $DEPLOY_COMMAND_ID"
+
+          wait_and_report_ssm_command \
+            "$DEPLOY_COMMAND_ID" \
+            "Deploy SSM command"
